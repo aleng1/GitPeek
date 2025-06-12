@@ -4,7 +4,8 @@ A simple CLI tool to fetch and display recent Github user activity using the Git
 ## Features
 
 - Fetches recent public activity of a GitHub user.
-- Displays activity in a clean, readable format.
+- Displays activity in a clean, readable, tabular format.
+- Provides clickable links for each activity to view it directly on GitHub.
 - Simple and easy to use CLI.
 - Written in Python with no external libraries for fetching data.
 
@@ -40,6 +41,8 @@ gitpeek torvalds
 ```
 
 ## Output Example
+
+The activity is displayed in a table. In modern terminals, you can click on each activity description to open the corresponding link on GitHub.
 
 ```
 $ gitpeek torvalds
