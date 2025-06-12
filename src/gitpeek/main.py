@@ -2,6 +2,7 @@ import argparse
 import json
 import sys
 from urllib import request, error
+from datetime import datetime
 
 API_URL = "https://api.github.com/users/{username}/events"
 
@@ -26,39 +27,48 @@ def get_user_activity(username):
         return None
 
 def format_event(event):
-    """Formats a single GitHub event into a human-readable string."""
+    """Formats a single GitHub event into a dictionary."""
     event_type = event['type']
     repo_name = event['repo']['name']
     payload = event.get('payload', {})
+    
+    # Parse timestamp
+    created_at_str = event['created_at']
+    created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
+    date = created_at.strftime('%Y-%m-%d')
+    time = created_at.strftime('%H:%M:%S')
 
+    description = None
     if event_type == 'PushEvent':
         commit_count = len(payload.get('commits', []))
         if commit_count > 0:
-            return f"- Pushed {commit_count} commit{'s' if commit_count > 1 else ''} to {repo_name}"
+            description = f"Pushed {commit_count} commit{'s' if commit_count > 1 else ''} to {repo_name}"
     elif event_type == 'IssuesEvent' and payload.get('action') == 'opened':
-        return f"- Opened issue #{payload['issue']['number']} in {repo_name}"
+        description = f"Opened issue #{payload['issue']['number']} in {repo_name}"
     elif event_type == 'IssueCommentEvent' and payload.get('action') == 'created':
-        return f"- Commented on issue #{payload['issue']['number']} in {repo_name}"
+        description = f"Commented on issue #{payload['issue']['number']} in {repo_name}"
     elif event_type == 'WatchEvent' and payload.get('action') == 'started':
-        return f"- Starred {repo_name}"
+        description = f"Starred {repo_name}"
     elif event_type == 'PullRequestEvent' and payload.get('action') == 'opened':
-        return f"- Opened pull request #{payload['pull_request']['number']} in {repo_name}"
+        description = f"Opened pull request #{payload['pull_request']['number']} in {repo_name}"
     elif event_type == 'CreateEvent':
         ref_type = payload.get('ref_type')
         if ref_type == 'repository':
-            return f"- Created a new repository: {repo_name}"
+            description = f"Created a new repository: {repo_name}"
         elif ref_type == 'branch':
-            return f"- Created branch '{payload['ref']}' in {repo_name}"
+            description = f"Created branch '{payload['ref']}' in {repo_name}"
         elif ref_type == 'tag':
-            return f"- Created tag '{payload['ref']}' in {repo_name}"
+            description = f"Created tag '{payload['ref']}' in {repo_name}"
     elif event_type == 'DeleteEvent':
-        return f"- Deleted {payload['ref_type']} '{payload['ref']}' from {repo_name}"
+        description = f"Deleted {payload['ref_type']} '{payload['ref']}' from {repo_name}"
     elif event_type == 'ForkEvent':
-        return f"- Forked {repo_name} to {payload['forkee']['full_name']}"
+        description = f"Forked {repo_name} to {payload['forkee']['full_name']}"
     elif event_type == 'PublicEvent':
-        return f"- Made {repo_name} public"
+        description = f"Made {repo_name} public"
 
-    # Return None for unhandled event types so they are not printed
+    if description:
+        return {'date': date, 'time': time, 'description': description}
+    
     return None
 
 def main():
@@ -70,11 +80,24 @@ def main():
     activity = get_user_activity(args.username)
 
     if activity:
-        print(f"Found {len(activity)} recent events for {args.username}:")
+        
+        processed_events = []
         for event in activity:
             formatted_event = format_event(event)
             if formatted_event:
-                print(formatted_event)
+                processed_events.append(formatted_event)
+
+        if not processed_events:
+            print("No supported events found for this user.")
+            return
+            
+        print(f"\nRecent activity for {args.username}:")
+        print("-" * 60)
+        print(f"{'Date':<12}{'Time':<10}{'Activity'}")
+        print("-" * 60)
+
+        for event in processed_events:
+            print(f"{event['date']:<12}{event['time']:<10}{event['description']}")
 
 if __name__ == "__main__":
     main() 
